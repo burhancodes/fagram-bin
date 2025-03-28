@@ -27,14 +27,17 @@ jobs:
         run: |
           git config --global user.email "contact@burhanverse.eu.org"
           git config --global user.name "Burhanverse"
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory /__w/fa/fa/workdir  # Add the working directory as safe
 
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - name: Clone the repository manually
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
+        run: |
+          git clone https://x-access-token:$GITHUB_TOKEN@github.com/burhancodes/fagram-bin.git workdir
+          cd workdir
+          git checkout main  # Adjust if your default branch is different (e.g., master)
 
-      - name: Setup SSH
+      - name: Setup SSH for AUR
         uses: shimataro/ssh-key-action@v2
         with:
           key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
@@ -43,6 +46,7 @@ jobs:
 
       - name: Check for new release
         id: check_release
+        working-directory: ./workdir
         run: |
           set -e
           LATEST_TAG=$(curl -s https://api.github.com/repos/FajoX1/fagramdesktop/releases/latest | jq -r .tag_name)
@@ -63,15 +67,18 @@ jobs:
             echo "update_needed=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Update package and push to AUR
+      - name: Update package and push to AUR and GitHub
         if: steps.check_release.outputs.update_needed == 'true'
+        working-directory: ./workdir
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
         run: |
           set -e
           NEW_VERSION=${{ steps.check_release.outputs.latest_version }}
           TAG_VERSION=${{ steps.check_release.outputs.latest_tag }}
           
           # Ensure working directory is owned by builder
-          chown -R builder:builder "$GITHUB_WORKSPACE"
+          chown -R builder:builder .
           
           # Update PKGBUILD with version without 'v' prefix
           sed -i "s/pkgver=.*/pkgver=$NEW_VERSION/" PKGBUILD
@@ -84,22 +91,20 @@ jobs:
           CHECKSUM=$(sha256sum "fagram-${TAG_VERSION}.tar.gz" | awk '{print $1}')
           sed -i "s/sha256sums=('.*')/sha256sums=('$CHECKSUM')/" PKGBUILD
           
-          # Debug: Check permissions before generating .SRCINFO
-          ls -ld "$PWD"
-          whoami
-          
           # Generate .SRCINFO as non-root user in the current directory
           sudo -u builder bash -c "cd \"$PWD\" && makepkg --printsrcinfo > .SRCINFO" || { echo "Failed to generate .SRCINFO"; exit 1; }
           
-          # Debug: Verify .SRCINFO was created
-          ls -l .SRCINFO
-          
-          # Clone AUR repository
           git clone ssh://aur@aur.archlinux.org/fagram-bin.git aur-repo || { echo "Clone failed"; exit 1; }
           cp PKGBUILD .SRCINFO aur-repo/
           
-          # Commit and push to AUR
           cd aur-repo
           git add PKGBUILD .SRCINFO
           git commit -m "Update to $NEW_VERSION"
           git push || { echo "Push to AUR failed"; exit 1; }
+          
+          cd ..
+          rm -rf aur-repo
+          
+          git add PKGBUILD .SRCINFO
+          git commit -m "Update PKGBUILD and .SRCINFO to $NEW_VERSION"
+          git push https://x-access-token:$GITHUB_TOKEN@github.com/burhancodes/fagram-bin.git main
