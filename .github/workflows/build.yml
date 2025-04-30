@@ -100,11 +100,5 @@ jobs:
           cd aur-repo
           git add PKGBUILD .SRCINFO
           git commit -m "Update to $NEW_VERSION"
-          git push || { echo "Push to AUR failed"; exit 1; }
+          git push
           
-          cd ..
-          rm -rf aur-repo
-          
-          git add PKGBUILD .SRCINFO
-          git commit -m "Update PKGBUILD and .SRCINFO to $NEW_VERSION"
-          git push https://x-access-token:$GITHUB_TOKEN@github.com/burhancodes/fagram-bin.git main
