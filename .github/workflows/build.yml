@@ -49,7 +49,7 @@ jobs:
         working-directory: ./workdir
         run: |
           set -e
-          LATEST_TAG=$(curl -s https://api.github.com/repos/FajoX1/fagramdesktop/releases/latest | jq -r .tag_name)
+          LATEST_TAG=$(curl -s https://api.github.com/repos/burhancodes/fagram-rpm/releases/latest | jq -r .tag_name)
           echo "Latest tag: $LATEST_TAG"
           
           # Strip the 'v' prefix for version comparison
