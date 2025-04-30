@@ -53,8 +53,8 @@ package() {
     local icon_size icon_dir
     for icon_size in 16 32 48 64 128 256 512; do
         icon_dir="${pkgdir}/usr/share/icons/hicolor/${icon_size}x${icon_size}/apps"
-        install -d "$icon_dir"
-        install -m644 "${srcdir}/usr/share/icons/hicolor/${icon_size}x${icon_size}/apps/fagram.png" "$icon_dir/fagram.png"
+        install -d "${icon_dir}"
+        install -m644 "${srcdir}/usr/share/icons/hicolor/${icon_size}x${icon_size}/apps/fagram.png" "${icon_dir}/fagram.png"
     done
 }
 
