@@ -82,7 +82,7 @@ jobs:
           
           # Update PKGBUILD with version without 'v' prefix
           sed -i "s/pkgver=.*/pkgver=$NEW_VERSION/" PKGBUILD
-          #sed -i "s/pkgrel=.*/pkgrel=1/" PKGBUILD
+          sed -i "s/pkgrel=.*/pkgrel=1/" PKGBUILD
           
           # Download source and calculate SHA256
           rm -rf pkg src *.tar.gz
