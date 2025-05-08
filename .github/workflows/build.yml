@@ -35,7 +35,7 @@ jobs:
         run: |
           git clone https://x-access-token:$GITHUB_TOKEN@github.com/burhancodes/fagram-bin.git workdir
           cd workdir
-          git checkout main  # Adjust if your default branch is different (e.g., master)
+          git checkout main
 
       - name: Setup SSH for AUR
         uses: shimataro/ssh-key-action@v2
@@ -67,7 +67,7 @@ jobs:
             echo "update_needed=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Update package and push to AUR and GitHub
+      - name: Update package and push to AUR
         if: steps.check_release.outputs.update_needed == 'true'
         working-directory: ./workdir
         env:

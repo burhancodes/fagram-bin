@@ -41,13 +41,13 @@ package() {
 
     # Desktop launcher
     install -Dm644 "${srcdir}/usr/share/icons/hicolor/256x256/apps/fagram.png" "${pkgdir}/usr/share/pixmaps/fagram.png"
-    install -Dm644 "${srcdir}/usr/share/applications/org.fagram.desktop.desktop" "${pkgdir}/usr/share/applications/org.fagram.desktop.desktop"
+    install -Dm644 "${srcdir}/usr/share/applications/org.fagram.desktop" "${pkgdir}/usr/share/applications/org.fagram.desktop"
 
     # DBus service
-    install -Dm644 "${srcdir}/usr/share/dbus-1/services/org.fagram.desktop.service" "${pkgdir}/usr/share/dbus-1/services/org.fagram.desktop.service"
+    install -Dm644 "${srcdir}/usr/share/dbus-1/services/org.fagram.service" "${pkgdir}/usr/share/dbus-1/services/org.fagram.service"
 
     # Metainfo
-    install -Dm644 "${srcdir}/usr/share/metainfo/org.fagram.desktop.metainfo.xml" "${pkgdir}/usr/share/metainfo/org.fagram.desktop.metainfo.xml"
+    install -Dm644 "${srcdir}/usr/share/metainfo/org.fagram.metainfo.xml" "${pkgdir}/usr/share/metainfo/org.fagram.metainfo.xml"
 
     # Icons
     local icon_size icon_dir
