@@ -44,7 +44,7 @@ jobs:
           known_hosts: ${{ secrets.AUR_KNOWN_HOSTS }}
           if_key_exists: replace
 
-      - name: Check for new release
+      - name: Check for new release or changes
         id: check_release
         working-directory: ./workdir
         run: |
@@ -59,13 +59,29 @@ jobs:
           CURRENT_VERSION=$(grep -oP 'pkgver=\K.*' PKGBUILD | tr -d '"')
           echo "Current version: $CURRENT_VERSION"
           
+          # Clone AUR repo to check for differences
+          git clone ssh://aur@aur.archlinux.org/fagram-bin.git aur-repo-check || { echo "Clone failed"; exit 1; }
+          
+          # Check if PKGBUILD or any files have changed
           if [ "$LATEST_VERSION" != "$CURRENT_VERSION" ]; then
+            echo "Version update needed: $CURRENT_VERSION -> $LATEST_VERSION"
             echo "update_needed=true" >> $GITHUB_OUTPUT
             echo "latest_version=$LATEST_VERSION" >> $GITHUB_OUTPUT
             echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+            echo "update_type=version" >> $GITHUB_OUTPUT
+          elif ! diff -q PKGBUILD aur-repo-check/PKGBUILD > /dev/null 2>&1; then
+            echo "PKGBUILD has changes (possibly pkgrel update)"
+            echo "update_needed=true" >> $GITHUB_OUTPUT
+            echo "latest_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            echo "latest_tag=v$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            echo "update_type=pkgbuild" >> $GITHUB_OUTPUT
           else
+            echo "No changes detected"
             echo "update_needed=false" >> $GITHUB_OUTPUT
           fi
+          
+          # Cleanup
+          rm -rf aur-repo-check
 
       - name: Update package and push to AUR
         if: steps.check_release.outputs.update_needed == 'true'
@@ -76,20 +92,31 @@ jobs:
           set -e
           NEW_VERSION=${{ steps.check_release.outputs.latest_version }}
           TAG_VERSION=${{ steps.check_release.outputs.latest_tag }}
+          UPDATE_TYPE=${{ steps.check_release.outputs.update_type }}
           
           # Ensure working directory is owned by builder
           chown -R builder:builder .
           
-          # Update PKGBUILD with version without 'v' prefix
-          sed -i "s/pkgver=.*/pkgver=$NEW_VERSION/" PKGBUILD
-          sed -i "s/pkgrel=.*/pkgrel=1/" PKGBUILD
-          
-          # Download source and calculate SHA256
-          rm -rf pkg src *.tar.gz
-          TAR_URL="https://github.com/burhancodes/fagram-rpm/releases/download/${TAG_VERSION}/fagram-${TAG_VERSION}.tar.gz"
-          curl -L "$TAR_URL" -o "fagram-${TAG_VERSION}.tar.gz" || { echo "Download failed"; exit 1; }
-          CHECKSUM=$(sha256sum "fagram-${TAG_VERSION}.tar.gz" | awk '{print $1}')
-          sed -i "s/sha256sums=('.*')/sha256sums=('$CHECKSUM')/" PKGBUILD
+          if [ "$UPDATE_TYPE" = "version" ]; then
+            echo "Performing version update to $NEW_VERSION"
+            # Update PKGBUILD with version without 'v' prefix
+            sed -i "s/pkgver=.*/pkgver=$NEW_VERSION/" PKGBUILD
+            sed -i "s/pkgrel=.*/pkgrel=1/" PKGBUILD
+            
+            # Download source and calculate SHA256
+            rm -rf pkg src *.tar.gz
+            TAR_URL="https://github.com/burhancodes/fagram-rpm/releases/download/${TAG_VERSION}/fagram-${TAG_VERSION}.tar.gz"
+            curl -L "$TAR_URL" -o "fagram-${TAG_VERSION}.tar.gz" || { echo "Download failed"; exit 1; }
+            CHECKSUM=$(sha256sum "fagram-${TAG_VERSION}.tar.gz" | awk '{print $1}')
+            sed -i "s/sha256sums=('.*')/sha256sums=('$CHECKSUM')/" PKGBUILD
+            
+            COMMIT_MSG="Update to $NEW_VERSION"
+          else
+            echo "Performing PKGBUILD update (likely pkgrel change)"
+            CURRENT_VERSION=$(grep -oP 'pkgver=\K.*' PKGBUILD | tr -d '"')
+            CURRENT_REL=$(grep -oP 'pkgrel=\K.*' PKGBUILD | tr -d '"')
+            COMMIT_MSG="Update PKGBUILD (pkgrel=$CURRENT_REL)"
+          fi
           
           # Generate .SRCINFO as non-root user in the current directory
           sudo -u builder bash -c "cd \"$PWD\" && makepkg --printsrcinfo > .SRCINFO" || { echo "Failed to generate .SRCINFO"; exit 1; }
@@ -99,6 +126,6 @@ jobs:
           
           cd aur-repo
           git add PKGBUILD .SRCINFO
-          git commit -m "Update to $NEW_VERSION"
+          git commit -m "$COMMIT_MSG"
           git push
           
